@@ -23,6 +23,58 @@ if (process.argv[2] === '--headless=false') {
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
+// Check if we're on the main/home page instead of a photo detail page
+const isOnHomePage = async (page) => {
+  try {
+    const currentUrl = await page.url()
+    // Check if URL indicates we're on the main photos page
+    const isMainPage = currentUrl.includes('photos.google.com') && 
+                      !currentUrl.includes('/photo/') && 
+                      !currentUrl.includes('/AF1Q')
+    
+    if (isMainPage) {
+      // Double-check by looking for main page elements
+      const hasMainPageElements = await page.evaluate(() => {
+        // Look for grid view or main page indicators
+        const gridElements = document.querySelectorAll('[data-ved]')
+        const photoGrid = document.querySelector('[role="main"]')
+        return gridElements.length > 10 || photoGrid !== null
+      })
+      
+      return hasMainPageElements
+    }
+    
+    return false
+  } catch (error) {
+    return false
+  }
+}
+
+// Navigate back to the last saved position
+const returnToLastPosition = async (page) => {
+  try {
+    console.log('Detected return to home page, navigating back to last position...')
+    const lastDone = await getProgress()
+    console.log('Returning to:', lastDone)
+    
+    await page.goto(clean(lastDone))
+    await sleep(2000) // Wait for page to load
+    
+    // Verify we're back on a photo detail page
+    const isBack = !(await isOnHomePage(page))
+    if (isBack) {
+      console.log('Successfully returned to photo detail page')
+      return true
+    } else {
+      console.log('Still on home page after navigation attempt')
+      return false
+    }
+  } catch (error) {
+    console.log('Error returning to last position:', error.message)
+    return false
+  }
+}
+
 const getProgress = async () => {
   try {
     const lastDone = await fsP.readFile('.lastdone', 'utf-8')
@@ -127,6 +179,22 @@ const getMonthAndYear = async (metadata, page) => {
 
   while (true) {
     const currentUrl = await page.url()
+    
+    // Check if we've been redirected to the home page
+    if (await isOnHomePage(page)) {
+      console.log('Detected navigation to home page after archiving sequence')
+      const recovered = await returnToLastPosition(page)
+      
+      if (!recovered) {
+        console.log('Could not recover from home page, exiting...')
+        break
+      }
+      
+      // Update currentUrl after recovery
+      const newCurrentUrl = await page.url()
+      console.log('Resumed from:', newCurrentUrl)
+      continue // Skip the rest of this iteration and start fresh
+    }
 
     if (clean(currentUrl) === clean(latestPhoto)) {
       console.log('-------------------------------------')
@@ -150,55 +218,97 @@ const getMonthAndYear = async (metadata, page) => {
     processedUrls.add(cleanCurrentUrl)
     await saveProgress(page)
     
-    // Navigate to next photo
+    // Smart navigation handling post-archive behavior
     try {
-      // If we just archived a photo, wait a bit longer for the page to stabilize
       if (result === 'archived') {
-        console.log('Photo was archived, waiting for page to stabilize...')
-        await sleep(2000) // Longer wait after archiving
-      }
-      
-      await page.evaluate(() => document.getElementsByClassName('SxgK2b OQEhnd')[0].click())
-
-      // Wait for navigation with URL change detection
-      await page.waitForURL((url) => {
-        const newCleanUrl = url.href.replace(/\/u\/\d+\//, '/')
-        return url.host === 'photos.google.com' && newCleanUrl !== cleanCurrentUrl
-      },
-        {
-          timeout: timeoutValue,
-        })
-      
-      // Check if we've seen this URL before (went backwards)
-      const newUrl = await page.url()
-      const newCleanUrl = clean(newUrl)
-      
-      if (processedUrls.has(newCleanUrl)) {
-        consecutiveRepeats++
-        console.log(`Warning: Navigated to previously processed URL (${consecutiveRepeats} repeats): ${newCleanUrl}`)
+        console.log('Photo was archived, using optimized navigation...')
         
-        if (consecutiveRepeats >= 3) {
-          console.log('Too many consecutive repeats, possibly stuck. Trying alternative navigation...')
-          // Try keyboard navigation as fallback
+        // After archiving, Google Photos often navigates back automatically
+        // Wait for this automatic navigation to complete
+        await sleep(1000)
+        
+        // Check if we're back at a previous photo
+        let navigationAttempts = 0
+        let currentNavigationUrl = await page.url()
+        
+        while (navigationAttempts < 5) { // Max 5 attempts to get to new photo
+          navigationAttempts++
+          
+          // Navigate forward (to older photos)
+          await page.evaluate(() => document.getElementsByClassName('SxgK2b OQEhnd')[0].click())
+          
+          // Wait for navigation with shorter timeout for faster response
+          try {
+            await page.waitForURL((url) => {
+              const newCleanUrl = url.href.replace(/\/u\/\d+\//, '/')
+              const currentCleanUrl = currentNavigationUrl.replace(/\/u\/\d+\//, '/')
+              return url.host === 'photos.google.com' && newCleanUrl !== currentCleanUrl
+            }, { timeout: 3000 }) // Shorter timeout for faster navigation
+            
+            const newUrl = await page.url()
+            const newCleanUrl = clean(newUrl)
+            
+            // Check if we've been redirected to home page
+            if (await isOnHomePage(page)) {
+              console.log('Redirected to home page during navigation, will be handled in main loop')
+              break // Exit navigation loop, let main loop handle recovery
+            }
+            
+            // Check if this is a new photo we haven't processed
+            if (!processedUrls.has(newCleanUrl)) {
+              console.log(`Successfully navigated to new photo after ${navigationAttempts} attempts`)
+              consecutiveRepeats = 0
+              break
+            } else {
+              console.log(`Still at processed photo, attempt ${navigationAttempts}/5`)
+              currentNavigationUrl = newUrl
+              await sleep(500) // Short wait before next attempt
+            }
+            
+          } catch (navError) {
+            console.log(`Navigation attempt ${navigationAttempts} timed out, trying again...`)
+            await sleep(500)
+          }
+        }
+        
+        if (navigationAttempts >= 5) {
+          console.log('Could not navigate to new photo after 5 attempts, trying keyboard navigation')
           await page.keyboard.press('ArrowLeft')
           await sleep(1000)
+        }
+        
+      } else {
+        // Normal navigation for non-archived photos
+        await page.evaluate(() => document.getElementsByClassName('SxgK2b OQEhnd')[0].click())
+
+        await page.waitForURL((url) => {
+          const newCleanUrl = url.href.replace(/\/u\/\d+\//, '/')
+          return url.host === 'photos.google.com' && newCleanUrl !== cleanCurrentUrl
+        }, { timeout: timeoutValue })
+        
+        // Check for backward navigation
+        const newUrl = await page.url()
+        const newCleanUrl = clean(newUrl)
+        
+        if (processedUrls.has(newCleanUrl)) {
+          consecutiveRepeats++
+          console.log(`Navigated backward, repeat ${consecutiveRepeats}`)
+          
+          if (consecutiveRepeats >= 2) {
+            console.log('Using keyboard navigation to break cycle')
+            await page.keyboard.press('ArrowLeft')
+            await sleep(1000)
+            consecutiveRepeats = 0
+          }
+        } else {
           consecutiveRepeats = 0
         }
-      } else {
-        consecutiveRepeats = 0 // Reset counter on successful new navigation
       }
       
     } catch (error) {
-      console.log('Navigation timeout or error, trying alternative navigation:', error.message)
-      // Try keyboard navigation as fallback
-      try {
-        await page.keyboard.press('ArrowLeft')
-        await sleep(1000)
-        console.log('Used keyboard navigation fallback')
-      } catch (innerError) {
-        console.log('All navigation methods failed, skipping...')
-        continue
-      }
+      console.log('Navigation error, using keyboard fallback:', error.message)
+      await page.keyboard.press('ArrowLeft')
+      await sleep(1000)
     }
   }
   await browser.close()
