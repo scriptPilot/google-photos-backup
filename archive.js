@@ -80,6 +80,10 @@ const getMonthAndYear = async (metadata, page) => {
   const startLink = await getProgress()
   console.log('Starting from:', new URL(startLink).href)
 
+  // Track processed URLs to avoid going backwards
+  const processedUrls = new Set()
+  let consecutiveRepeats = 0
+
   const browser = await chromium.launchPersistentContext(path.resolve(userDataDir), {
     headless,
     channel: 'chromium',
@@ -111,10 +115,15 @@ const getMonthAndYear = async (metadata, page) => {
   /*
     Process the first (Oldest) photo.
   */
+  const initialUrl = await page.url()
+  processedUrls.add(clean(initialUrl))
+  
   const firstResult = await archivePhoto(page, true)
   if (firstResult === 'timeout') {
     console.log('First photo timed out, continuing...')
   }
+  
+  await saveProgress(page)
 
   while (true) {
     const currentUrl = await page.url()
@@ -130,21 +139,67 @@ const getMonthAndYear = async (metadata, page) => {
       Note: I have tried both left arrow press and clicking directly the left side of arrow using playwright click method.
       However, both of them are not working. So, I have injected the click method in the html.
     */
-    await page.evaluate(() => document.getElementsByClassName('SxgK2b OQEhnd')[0].click())
-
-    // we wait until new photo is loaded
-    await page.waitForURL((url) => {
-      return url.host === 'photos.google.com' && url.href !== currentUrl
-    },
-      {
-        timeout: timeoutValue,
-      })
-
+    // Process current photo first
     const result = await archivePhoto(page)
     if (result === 'timeout') {
       console.log('Skipping due to timeout, continuing to next photo...')
     }
+    
+    // Track this URL as processed
+    const cleanCurrentUrl = clean(currentUrl)
+    processedUrls.add(cleanCurrentUrl)
     await saveProgress(page)
+    
+    // Navigate to next photo
+    try {
+      // If we just archived a photo, wait a bit longer for the page to stabilize
+      if (result === 'archived') {
+        console.log('Photo was archived, waiting for page to stabilize...')
+        await sleep(2000) // Longer wait after archiving
+      }
+      
+      await page.evaluate(() => document.getElementsByClassName('SxgK2b OQEhnd')[0].click())
+
+      // Wait for navigation with URL change detection
+      await page.waitForURL((url) => {
+        const newCleanUrl = url.href.replace(/\/u\/\d+\//, '/')
+        return url.host === 'photos.google.com' && newCleanUrl !== cleanCurrentUrl
+      },
+        {
+          timeout: timeoutValue,
+        })
+      
+      // Check if we've seen this URL before (went backwards)
+      const newUrl = await page.url()
+      const newCleanUrl = clean(newUrl)
+      
+      if (processedUrls.has(newCleanUrl)) {
+        consecutiveRepeats++
+        console.log(`Warning: Navigated to previously processed URL (${consecutiveRepeats} repeats): ${newCleanUrl}`)
+        
+        if (consecutiveRepeats >= 3) {
+          console.log('Too many consecutive repeats, possibly stuck. Trying alternative navigation...')
+          // Try keyboard navigation as fallback
+          await page.keyboard.press('ArrowLeft')
+          await sleep(1000)
+          consecutiveRepeats = 0
+        }
+      } else {
+        consecutiveRepeats = 0 // Reset counter on successful new navigation
+      }
+      
+    } catch (error) {
+      console.log('Navigation timeout or error, trying alternative navigation:', error.message)
+      // Try keyboard navigation as fallback
+      try {
+        await page.keyboard.press('ArrowLeft')
+        await sleep(1000)
+        console.log('Used keyboard navigation fallback')
+      } catch (innerError) {
+        console.log('All navigation methods failed, skipping...')
+        continue
+      }
+    }
   }
   await browser.close()
 })()
@@ -171,7 +226,7 @@ const showDrawer = async (page) => {
     if (!isDrawerVisible) {
       console.log('Show right hand drawer.');
       await page.keyboard.press('KeyI');
-      await sleep(300); // Reduced wait time
+      await sleep(200); // Faster response
     } else {
       console.log('Right hand drawer already visible.');
     }
@@ -184,7 +239,7 @@ const showDrawer = async (page) => {
 
 const archiveElement = async (page) => {
   try {
-    // Fast check using page.evaluate to avoid multiple DOM queries
+    // Super fast check - exit immediately if albums are found
     const albumInfo = await Promise.race([
       page.evaluate(() => {
         const infoBoxSelector = '.WUbige';
@@ -200,15 +255,18 @@ const archiveElement = async (page) => {
           return { error: `Found ${visibleBoxes.length} visible info boxes` };
         }
         
+        // Fast check: if any album box contains "Alben", immediately return
         const albumBoxes = visibleBoxes[0].querySelectorAll(albumBoxSelector);
-        const albumCount = Array.from(albumBoxes).filter(el => 
-          el.textContent.trim() === 'Alben'
-        ).length;
+        for (let i = 0; i < albumBoxes.length; i++) {
+          if (albumBoxes[i].textContent.trim() === 'Alben') {
+            return { hasAlbums: true }; // Exit immediately when found
+          }
+        }
         
-        return { albumCount };
+        return { hasAlbums: false }; // No albums found
       }),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), timeoutValue)
+        setTimeout(() => reject(new Error('Timeout')), 5000) // Even shorter timeout for faster response
       )
     ]);
     
@@ -217,17 +275,17 @@ const archiveElement = async (page) => {
       return false;
     }
     
-    if (albumInfo.albumCount === 0) {
+    if (albumInfo.hasAlbums) {
+      console.log('Albums found - skipping archive.');
+      return false; // Exit immediately, no archiving needed
+    } else {
       console.log('No albums found - photo will be archived.');
       // Archive the photo using SHIFT + A
       await page.keyboard.down('Shift');
       await page.keyboard.press('KeyA');
       await page.keyboard.up('Shift');
-      await sleep(500); // Reduced wait time
+      await sleep(300); // Even shorter wait time
       return true;
-    } else {
-      console.log(`Found ${albumInfo.albumCount} album boxes - skipping archive.`);
-      return false;
     }
   } catch (error) {
     console.log('Archive element timeout - skipping this image');
