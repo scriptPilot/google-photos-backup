@@ -7,8 +7,8 @@
   "type": "module",
   "scripts": {
     "backup": "node index.js --headless=false",
-    "cleanup": "node cleanup.js --headless=false",
-    "cleanup-dev": "echo https://photos.google.com/photo/AF1QipPfNXp2NJW5Iro62C9VCWjcnPmn06Tw7_OzoPhg > .lastdone && node archive.js --headless=false"
+    "archive": "node archive.js --headless=false",
+    "archive-dev": "echo https://photos.google.com/photo/AF1QipPfNXp2NJW5Iro62C9VCWjcnPmn06Tw7_OzoPhg > .lastdone && node archive.js --headless=false"
   },
   "author": {
     "name": "Vikas Kapadiya",
