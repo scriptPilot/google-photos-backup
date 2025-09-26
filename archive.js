@@ -146,10 +146,10 @@ const getMonthAndYear = async (metadata, page) => {
       '--disable-infobars',    // Prevent infobars
       '--disable-extensions',   // Disable extensions
       '--start-maximized',      // Start maximized
-      '--window-size=1280,720'  // Set a specific window size
+      '--window-size=800,600'  // Set a specific window size
     ],
     userAgent: userAgent.toString(),
-    viewport: { width: 1280, height: 720 },
+    viewport: { width: 800, height: 600 },
     deviceScaleFactor: 1,
   })
 
