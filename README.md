@@ -2,6 +2,8 @@
 <h1>Google Photos Backup <a href=""><img alt="npm" src="https://img.shields.io/github/package-json/v/vikas5914/google-photos-backup/master"></a></h1>
 </div>
 
+Added: Archiving of items which are not in any album: `npm run archive`.
+
 # Why?
 
 Google recently closed Google Domain, which made me think about my photos. I have more than 10k photos on Google Photos, and I don't want to download them one by one.
