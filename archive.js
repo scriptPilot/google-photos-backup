@@ -175,7 +175,10 @@ const getMonthAndYear = async (metadata, page) => {
     console.log('First photo timed out, continuing...')
   }
   
-  await saveProgress(page)
+  // Only save progress if photo was NOT archived (archived photos cannot be used as starting point)
+  if (firstResult !== 'archived') {
+    await saveProgress(page)
+  }
 
   while (true) {
     const currentUrl = await page.url()
@@ -216,7 +219,11 @@ const getMonthAndYear = async (metadata, page) => {
     // Track this URL as processed
     const cleanCurrentUrl = clean(currentUrl)
     processedUrls.add(cleanCurrentUrl)
-    await saveProgress(page)
+    
+    // Only save progress if photo was NOT archived (archived photos cannot be used as starting point)
+    if (result !== 'archived') {
+      await saveProgress(page)
+    }
     
     // Smart navigation handling post-archive behavior
     try {
