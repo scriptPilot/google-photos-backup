@@ -2,3 +2,4 @@ node_modules
 yarn.lock
 test.js
 .lastdone
+.DS_Store
