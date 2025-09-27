@@ -322,7 +322,7 @@ const saveProgress = async (page) => {
 })()
 
 const waitForPageLoad = async (page) => {
-  customLog(`� Loading page ${page.url()}`)
+  customLog(`Loading page ${page.url()}`)
   try {
     await page.waitForLoadState('domcontentloaded', { timeout: timeoutValue })
     await sleep(200) // Short wait for dynamic content
