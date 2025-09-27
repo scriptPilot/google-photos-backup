@@ -112,39 +112,6 @@ const saveProgress = async (page) => {
     customLog('⚠️ Current URL not valid Google Photos URL, not saving progress')
   }
 }
-const getMonthAndYear = async (metadata, page) => {
-  let year = 1970
-  let month = 1
-  let dateType = "default"
-  if (metadata.DateTimeOriginal) {
-    year = metadata.DateTimeOriginal.year
-    month = metadata.DateTimeOriginal.month
-    dateType = "DateTimeOriginal"
-  } else if (metadata.CreateDate) {
-    year = metadata.CreateDate.year
-    month = metadata.CreateDate.month
-    dateType = "CreateDate"
-  } else {
-    // if metadata is not available, we try to get the date from the html
-    customLog('ℹ️ Metadata not found, trying to get date from html')
-    const data = await page.request.get(page.url())
-    const html = await data.text()
-
-    const regex = /aria-label="(Photo|Video) - (Landscape|Portrait|Square) - ([A-Za-z]{3} \d{1,2}, \d{4}, \d{1,2}:\d{2}:\d{2} [APM]{2})"/
-    const match = regex.exec(html)
-
-    if (match) {
-      const dateString = match[3].replace(/\u202F/g, ' ') // Remove U+202F character
-      const date = new Date(dateString)
-      if (date.toString() !== 'Invalid Date') {
-        year = date.getFullYear()
-        month = date.getMonth() + 1
-        dateType = "HTML"
-      }
-    }
-  }
-  return { year, month, dateType }
-}
 
 (async () => {
   const startLink = await getProgress()
