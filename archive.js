@@ -40,8 +40,8 @@ const customLog = (message) => {
   
   // Clear console and show clean format
   console.clear()
-  const itemsPerMinute = totalProcessed > 0 ? ((totalProcessed / runtimeSeconds) * 60).toFixed(1) : '0'
-  console.log(`📦 Archived: ${archivedCount} | ⏭️  Skipped: ${skippedCount} |  ⏲️ Items per minute: ${itemsPerMinute}`)
+  const itemsPerMinute = totalProcessed > 0 ? ((totalProcessed / runtimeSeconds) * 60).toFixed(0) : '-'
+  console.log(`📦 Archived: ${archivedCount} | ⏭️ Skipped: ${skippedCount} | ⏲️ Items per minute: ${itemsPerMinute}`)
   console.log()
   
   // Show last 5 messages in ascending order (oldest to newest)
