@@ -154,7 +154,7 @@ const saveProgress = async (page) => {
   const initialUrl = await page.url()
   processedUrls.add(clean(initialUrl))
   
-  const firstResult = await archivePhoto(page, true)
+  const firstResult = await archivePhoto(page)
   if (firstResult === 'timeout') {
     timeoutCount++
     customLog('⏰ First photo timed out, continuing...')
@@ -409,7 +409,7 @@ const archiveElement = async (page) => {
   }
 }
 
-const archivePhoto = async (page, firstOne = false) => {
+const archivePhoto = async (page) => {
   try {
     const pageLoaded = await waitForPageLoad(page)
     if (!pageLoaded) {
