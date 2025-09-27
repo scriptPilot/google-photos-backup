@@ -235,38 +235,26 @@ const saveProgress = async (page) => {
         customLog('Photo archived, using optimized navigation...')
         
         // After archiving, Google Photos often navigates back automatically
-        // Wait for this automatic navigation to complete and UI to stabilize
-        await sleep(400)
+        // Wait for this automatic navigation to complete
+        await sleep(1000)
         
         // Check if we're back at a previous photo
         let navigationAttempts = 0
         let currentNavigationUrl = await page.url()
         
-        while (navigationAttempts < 3) { // Max 3 attempts to get to new photo (reduced from 5)
+        while (navigationAttempts < 5) { // Max 5 attempts to get to new photo
           navigationAttempts++
           
-          // Navigate forward (to older photos) with element checking
-          const navigationSuccess = await page.evaluate(() => {
-            const navButtons = document.getElementsByClassName('SxgK2b OQEhnd')
-            if (navButtons.length > 0 && navButtons[0]) {
-              navButtons[0].click()
-              return true
-            }
-            return false
-          })
+          // Navigate forward (to older photos)
+          await page.evaluate(() => document.getElementsByClassName('SxgK2b OQEhnd')[0].click())
           
-          if (!navigationSuccess) {
-            customLog(`Navigation button not found, attempt ${navigationAttempts}, trying keyboard...`)
-            await page.keyboard.press('ArrowLeft')
-          }
-          
-          // Wait for navigation with optimized timeout for faster response
+          // Wait for navigation with shorter timeout for faster response
           try {
             await page.waitForURL((url) => {
               const newCleanUrl = url.href.replace(/\/u\/\d+\//, '/')
               const currentCleanUrl = currentNavigationUrl.replace(/\/u\/\d+\//, '/')
               return url.host === 'photos.google.com' && newCleanUrl !== currentCleanUrl
-            }, { timeout: 2500 }) // More reliable timeout for Google Photos response
+            }, { timeout: 3000 }) // Shorter timeout for faster navigation
             
             const newUrl = await page.url()
             const newCleanUrl = clean(newUrl)
@@ -283,29 +271,21 @@ const saveProgress = async (page) => {
               consecutiveRepeats = 0
               break
             } else {
-              customLog(`Still at processed photo, attempt ${navigationAttempts}/3`)
+              customLog(`Still at processed photo, attempt ${navigationAttempts}/5`)
               currentNavigationUrl = newUrl
-              await sleep(200) // Shorter wait before next attempt
+              await sleep(500) // Short wait before next attempt
             }
             
           } catch (navError) {
-            customLog(`Navigation attempt ${navigationAttempts} timed out, trying keyboard fallback...`)
-            await page.keyboard.press('ArrowLeft')
-            await sleep(500) // Give keyboard navigation time to work
-            
-            // Check if keyboard navigation worked
-            const newKeyboardUrl = await page.url()
-            if (clean(newKeyboardUrl) !== clean(currentNavigationUrl)) {
-              customLog(`Keyboard navigation succeeded on attempt ${navigationAttempts}`)
-              break
-            }
+            customLog(`Navigation attempt ${navigationAttempts} timed out, trying again...`)
+            await sleep(500)
           }
         }
         
-        if (navigationAttempts >= 3) {
-          customLog('Could not navigate after 3 attempts, trying keyboard navigation')
+        if (navigationAttempts >= 5) {
+          customLog('Could not navigate after 5 attempts, trying keyboard navigation')
           await page.keyboard.press('ArrowLeft')
-          await sleep(300) // Reduced keyboard navigation wait time
+          await sleep(1000)
         }
         
       } else {
@@ -424,7 +404,7 @@ const archiveElement = async (page) => {
       await page.keyboard.down('Shift');
       await page.keyboard.press('KeyA');
       await page.keyboard.up('Shift');
-      await sleep(150); // Further reduced wait time for keyboard shortcut
+      await sleep(300); // Even shorter wait time
       return true;
     }
   } catch (error) {
@@ -446,7 +426,7 @@ const archivePhoto = async (page) => {
     }
     
     const archived = await archiveElement(page)
-    await sleep(100) // Further reduced wait time
+    await sleep(200) // Reduced wait time
     
     if (archived) {
       return 'archived'
