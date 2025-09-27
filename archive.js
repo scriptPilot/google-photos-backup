@@ -27,15 +27,21 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 let logHistory = []
 let archivedCount = 0
 let skippedCount = 0
-let timeoutCount = 0
+let startTime = Date.now()
 
 const customLog = (message) => {
   // Add to history (keep all messages)
   logHistory.push(message)
   
+  // Calculate seconds per item
+  const totalProcessed = archivedCount + skippedCount
+  const runtimeSeconds = (Date.now() - startTime) / 1000
+  const secondsPerItem = totalProcessed > 0 ? (runtimeSeconds / totalProcessed).toFixed(1) : '0.0'
+  
   // Clear console and show clean format
   console.clear()
-  console.log(`📦 Archived: ${archivedCount} | ⏭️  Skipped: ${skippedCount} | ⏰ Timeouts: ${timeoutCount}`)
+  const itemsPerMinute = totalProcessed > 0 ? ((totalProcessed / runtimeSeconds) * 60).toFixed(1) : '0'
+  console.log(`📦 Archived: ${archivedCount} | ⏭️  Skipped: ${skippedCount} |  ⏲️ Items per minute: ${itemsPerMinute}`)
   console.log()
   
   // Show last 5 messages in ascending order (oldest to newest)
@@ -156,7 +162,6 @@ const saveProgress = async (page) => {
   
   const firstResult = await archivePhoto(page)
   if (firstResult === 'timeout') {
-    timeoutCount++
     customLog('First photo timed out, continuing...')
   } else if (firstResult === 'archived') {
     archivedCount++
@@ -192,7 +197,7 @@ const saveProgress = async (page) => {
 
     if (clean(currentUrl) === clean(latestPhoto)) {
       customLog('Reached the latest photo - Archive process completed!')
-      customLog(`📊 Final totals: 📦 ${archivedCount} archived, ⏭️ ${skippedCount} skipped, ⏰ ${timeoutCount} timeouts`)
+      customLog(`📊 Final totals: 📦 ${archivedCount} archived, ⏭️ ${skippedCount} skipped`)
       break
     }
 
@@ -206,7 +211,6 @@ const saveProgress = async (page) => {
     
     // Update counters and log result
     if (result === 'timeout') {
-      timeoutCount++
       customLog('Photo timed out, continuing to next...')
     } else if (result === 'archived') {
       archivedCount++
