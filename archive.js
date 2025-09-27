@@ -88,7 +88,7 @@ const returnToLastPosition = async (page) => {
       return false
     }
   } catch (error) {
-    customLog('🧭 Error returning to last position: ' + error.message)
+    customLog('Error returning to last position: ' + error.message)
     return false
   }
 }
@@ -109,13 +109,13 @@ const saveProgress = async (page) => {
   if (currentUrl.startsWith('https://photos.google.com')) {
     await fsP.writeFile('.lastdone', currentUrl, 'utf-8');
   } else {
-    customLog('⚠️ Current URL not valid Google Photos URL, not saving progress')
+    customLog('Current URL not valid Google Photos URL, not saving progress')
   }
 }
 
 (async () => {
   const startLink = await getProgress()
-  customLog(`🚀 Starting archive process from: ${new URL(startLink).href}`)
+  customLog(`Starting archive process from: ${new URL(startLink).href}`)
 
   // Track processed URLs to avoid going backwards
   const processedUrls = new Set()
@@ -143,7 +143,7 @@ const saveProgress = async (page) => {
   await page.goto('https://photos.google.com')
 
   const latestPhoto = await getLatestPhoto(page)
-  customLog(`ℹ️ Latest photo detected: ${latestPhoto}`)
+  customLog(`Latest photo detected: ${latestPhoto}`)
 
 
   await page.goto(clean(startLink))
@@ -157,13 +157,13 @@ const saveProgress = async (page) => {
   const firstResult = await archivePhoto(page)
   if (firstResult === 'timeout') {
     timeoutCount++
-    customLog('⏰ First photo timed out, continuing...')
+    customLog('First photo timed out, continuing...')
   } else if (firstResult === 'archived') {
     archivedCount++
-    customLog('📦 First photo archived successfully')
+    customLog('First photo archived successfully')
   } else if (firstResult === 'skipped') {
     skippedCount++
-    customLog('⏭️ First photo skipped (in album)')
+    customLog('First photo skipped (in album)')
   }
   
   // Only save progress if photo was NOT archived (archived photos cannot be used as starting point)
@@ -176,22 +176,22 @@ const saveProgress = async (page) => {
     
     // Check if we've been redirected to the home page
     if (await isOnHomePage(page)) {
-      customLog('🧭 Redirected to home page, recovering position...')
+      customLog('Redirected to home page, recovering position...')
       const recovered = await returnToLastPosition(page)
       
       if (!recovered) {
-        customLog('🧭 Could not recover from home page, exiting process')
+        customLog('Could not recover from home page, exiting process')
         break
       }
       
       // Update currentUrl after recovery
       const newCurrentUrl = await page.url()
-      customLog('✅ Successfully resumed from saved position')
+      customLog('Successfully resumed from saved position')
       continue // Skip the rest of this iteration and start fresh
     }
 
     if (clean(currentUrl) === clean(latestPhoto)) {
-      customLog('🏁 Reached the latest photo - Archive process completed!')
+      customLog('Reached the latest photo - Archive process completed!')
       customLog(`📊 Final totals: 📦 ${archivedCount} archived, ⏭️ ${skippedCount} skipped, ⏰ ${timeoutCount} timeouts`)
       break
     }
@@ -207,13 +207,13 @@ const saveProgress = async (page) => {
     // Update counters and log result
     if (result === 'timeout') {
       timeoutCount++
-      customLog('⏰ Photo timed out, continuing to next...')
+      customLog('Photo timed out, continuing to next...')
     } else if (result === 'archived') {
       archivedCount++
-      customLog('📦 Photo archived successfully')
+      customLog('Photo archived successfully')
     } else if (result === 'skipped') {
       skippedCount++
-      customLog('⏭️ Photo skipped (in album)')
+      customLog('Photo skipped (in album)')
     }
     
     // Track this URL as processed
@@ -228,7 +228,7 @@ const saveProgress = async (page) => {
     // Smart navigation handling post-archive behavior
     try {
       if (result === 'archived') {
-        customLog('🧭 Photo archived, using optimized navigation...')
+        customLog('Photo archived, using optimized navigation...')
         
         // After archiving, Google Photos often navigates back automatically
         // Wait for this automatic navigation to complete
@@ -257,29 +257,29 @@ const saveProgress = async (page) => {
             
             // Check if we've been redirected to home page
             if (await isOnHomePage(page)) {
-              customLog('🧭 Redirected to home page during navigation')
+              customLog('Redirected to home page during navigation')
               break // Exit navigation loop, let main loop handle recovery
             }
             
             // Check if this is a new photo we haven't processed
             if (!processedUrls.has(newCleanUrl)) {
-              customLog(`✅ Successfully navigated to new photo after ${navigationAttempts} attempts`)
+              customLog(`Successfully navigated to new photo after ${navigationAttempts} attempts`)
               consecutiveRepeats = 0
               break
             } else {
-              customLog(`🧭 Still at processed photo, attempt ${navigationAttempts}/5`)
+              customLog(`Still at processed photo, attempt ${navigationAttempts}/5`)
               currentNavigationUrl = newUrl
               await sleep(500) // Short wait before next attempt
             }
             
           } catch (navError) {
-            customLog(`⏰ Navigation attempt ${navigationAttempts} timed out, trying again...`)
+            customLog(`Navigation attempt ${navigationAttempts} timed out, trying again...`)
             await sleep(500)
           }
         }
         
         if (navigationAttempts >= 5) {
-          customLog('🧭 Could not navigate after 5 attempts, trying keyboard navigation')
+          customLog('Could not navigate after 5 attempts, trying keyboard navigation')
           await page.keyboard.press('ArrowLeft')
           await sleep(1000)
         }
@@ -299,10 +299,10 @@ const saveProgress = async (page) => {
         
         if (processedUrls.has(newCleanUrl)) {
           consecutiveRepeats++
-          customLog(`🧭 Navigated backward, repeat ${consecutiveRepeats}`)
+          customLog(`Navigated backward, repeat ${consecutiveRepeats}`)
           
           if (consecutiveRepeats >= 2) {
-            customLog('🧭 Using keyboard navigation to break cycle')
+            customLog('Using keyboard navigation to break cycle')
             await page.keyboard.press('ArrowLeft')
             await sleep(1000)
             consecutiveRepeats = 0
@@ -313,7 +313,7 @@ const saveProgress = async (page) => {
       }
       
     } catch (error) {
-      customLog('⚠️ Navigation error, using keyboard fallback')
+      customLog('Navigation error, using keyboard fallback')
       await page.keyboard.press('ArrowLeft')
       await sleep(1000)
     }
@@ -340,15 +340,15 @@ const showDrawer = async (page) => {
       return el && window.getComputedStyle(el).display !== 'none' && el.innerHTML.trim() !== '';
     }, { drawerSelector });
     if (!isDrawerVisible) {
-      customLog('ℹ️ Show right hand drawer')
+      customLog('Show right hand drawer')
       await page.keyboard.press('KeyI');
       await sleep(200); // Faster response
     } else {
-      customLog('ℹ️ Right hand drawer already visible')
+      customLog('Right hand drawer already visible')
     }
     return true
   } catch (error) {
-    customLog('❌ Drawer timeout - skipping this image')
+    customLog('Drawer timeout - skipping this image')
     return false
   }
 }
@@ -387,15 +387,15 @@ const archiveElement = async (page) => {
     ]);
     
     if (albumInfo.error) {
-      customLog(`❌ ${albumInfo.error}, archiving skipped`)
+      customLog(`${albumInfo.error}, archiving skipped`)
       return false;
     }
     
     if (albumInfo.hasAlbums) {
-      customLog('ℹ️ Albums found - skipping archive')
+      customLog('Albums found - skipping archive')
       return false; // Exit immediately, no archiving needed
     } else {
-      customLog('📦 No albums found - photo will be archived')
+      customLog('No albums found - photo will be archived')
       // Archive the photo using SHIFT + A
       await page.keyboard.down('Shift');
       await page.keyboard.press('KeyA');
@@ -404,7 +404,7 @@ const archiveElement = async (page) => {
       return true;
     }
   } catch (error) {
-    customLog('⏰ Archive element timeout - skipping this image')
+    customLog('Archive element timeout - skipping this image')
     return false;
   }
 }
@@ -430,7 +430,7 @@ const archivePhoto = async (page) => {
       return 'skipped'
     }
   } catch (error) {
-    customLog('⏰ Photo processing timeout - skipping')
+    customLog('Photo processing timeout - skipping')
     return 'timeout'
   }
 }
