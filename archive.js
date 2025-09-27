@@ -425,10 +425,8 @@ const archivePhoto = async (page) => {
     await sleep(200) // Reduced wait time
     
     if (archived) {
-      customLog('✅ Photo archived successfully')
       return 'archived'
     } else {
-      customLog('⏭️ Photo skipped (in album or error)')
       return 'skipped'
     }
   } catch (error) {
