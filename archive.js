@@ -35,7 +35,7 @@ const customLog = (message) => {
   
   // Clear console and show clean format
   console.clear()
-  console.log(`📊 Progress: 📦 Archived: ${archivedCount} | ⏭️  Skipped: ${skippedCount} | ⏰ Timeouts: ${timeoutCount}`)
+  console.log(`📦 Archived: ${archivedCount} | ⏭️  Skipped: ${skippedCount} | ⏰ Timeouts: ${timeoutCount}`)
   console.log()
   
   // Show last 5 messages in ascending order (oldest to newest)
