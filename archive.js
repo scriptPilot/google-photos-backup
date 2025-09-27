@@ -88,7 +88,7 @@ const returnToLastPosition = async (page) => {
       return false
     }
   } catch (error) {
-    customLog('❌ Error returning to last position: ' + error.message)
+    customLog('🧭 Error returning to last position: ' + error.message)
     return false
   }
 }
@@ -126,7 +126,7 @@ const getMonthAndYear = async (metadata, page) => {
     dateType = "CreateDate"
   } else {
     // if metadata is not available, we try to get the date from the html
-    customLog('🔍 Metadata not found, trying to get date from html')
+    customLog('ℹ️ Metadata not found, trying to get date from html')
     const data = await page.request.get(page.url())
     const html = await data.text()
 
@@ -176,7 +176,7 @@ const getMonthAndYear = async (metadata, page) => {
   await page.goto('https://photos.google.com')
 
   const latestPhoto = await getLatestPhoto(page)
-  customLog(`🎯 Latest photo detected: ${latestPhoto}`)
+  customLog(`ℹ️ Latest photo detected: ${latestPhoto}`)
 
 
   await page.goto(clean(startLink))
@@ -209,11 +209,11 @@ const getMonthAndYear = async (metadata, page) => {
     
     // Check if we've been redirected to the home page
     if (await isOnHomePage(page)) {
-      customLog('🏠 Redirected to home page, recovering position...')
+      customLog('🧭 Redirected to home page, recovering position...')
       const recovered = await returnToLastPosition(page)
       
       if (!recovered) {
-        customLog('❌ Could not recover from home page, exiting process')
+        customLog('🧭 Could not recover from home page, exiting process')
         break
       }
       
@@ -261,7 +261,7 @@ const getMonthAndYear = async (metadata, page) => {
     // Smart navigation handling post-archive behavior
     try {
       if (result === 'archived') {
-        customLog('🔄 Photo archived, using optimized navigation...')
+        customLog('🧭 Photo archived, using optimized navigation...')
         
         // After archiving, Google Photos often navigates back automatically
         // Wait for this automatic navigation to complete
@@ -290,7 +290,7 @@ const getMonthAndYear = async (metadata, page) => {
             
             // Check if we've been redirected to home page
             if (await isOnHomePage(page)) {
-              customLog('🏠 Redirected to home page during navigation')
+              customLog('🧭 Redirected to home page during navigation')
               break // Exit navigation loop, let main loop handle recovery
             }
             
@@ -300,7 +300,7 @@ const getMonthAndYear = async (metadata, page) => {
               consecutiveRepeats = 0
               break
             } else {
-              customLog(`🔄 Still at processed photo, attempt ${navigationAttempts}/5`)
+              customLog(`🧭 Still at processed photo, attempt ${navigationAttempts}/5`)
               currentNavigationUrl = newUrl
               await sleep(500) // Short wait before next attempt
             }
@@ -312,7 +312,7 @@ const getMonthAndYear = async (metadata, page) => {
         }
         
         if (navigationAttempts >= 5) {
-          customLog('⌨️ Could not navigate after 5 attempts, trying keyboard navigation')
+          customLog('🧭 Could not navigate after 5 attempts, trying keyboard navigation')
           await page.keyboard.press('ArrowLeft')
           await sleep(1000)
         }
@@ -332,10 +332,10 @@ const getMonthAndYear = async (metadata, page) => {
         
         if (processedUrls.has(newCleanUrl)) {
           consecutiveRepeats++
-          customLog(`↩️ Navigated backward, repeat ${consecutiveRepeats}`)
+          customLog(`🧭 Navigated backward, repeat ${consecutiveRepeats}`)
           
           if (consecutiveRepeats >= 2) {
-            customLog('🔓 Using keyboard navigation to break cycle')
+            customLog('🧭 Using keyboard navigation to break cycle')
             await page.keyboard.press('ArrowLeft')
             await sleep(1000)
             consecutiveRepeats = 0
@@ -355,7 +355,7 @@ const getMonthAndYear = async (metadata, page) => {
 })()
 
 const waitForPageLoad = async (page) => {
-  customLog(`🔄 Loading page ${page.url()}`)
+  customLog(`� Loading page ${page.url()}`)
   try {
     await page.waitForLoadState('domcontentloaded', { timeout: timeoutValue })
     await sleep(200) // Short wait for dynamic content
@@ -373,11 +373,11 @@ const showDrawer = async (page) => {
       return el && window.getComputedStyle(el).display !== 'none' && el.innerHTML.trim() !== '';
     }, { drawerSelector });
     if (!isDrawerVisible) {
-      customLog('📋 Show right hand drawer')
+      customLog('ℹ️ Show right hand drawer')
       await page.keyboard.press('KeyI');
       await sleep(200); // Faster response
     } else {
-      customLog('📋 Right hand drawer already visible')
+      customLog('ℹ️ Right hand drawer already visible')
     }
     return true
   } catch (error) {
@@ -425,7 +425,7 @@ const archiveElement = async (page) => {
     }
     
     if (albumInfo.hasAlbums) {
-      customLog('📁 Albums found - skipping archive')
+      customLog('ℹ️ Albums found - skipping archive')
       return false; // Exit immediately, no archiving needed
     } else {
       customLog('📦 No albums found - photo will be archived')
