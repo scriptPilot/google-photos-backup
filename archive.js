@@ -299,9 +299,17 @@ const saveProgress = async (page) => {
         }
         
         if (navigationAttempts >= 3) {
-          customLog('Could not navigate after 3 attempts, trying keyboard navigation')
+          customLog('Final keyboard navigation attempt after click failures')
           await page.keyboard.press('ArrowLeft')
-          await sleep(300) // Reduced keyboard navigation wait time
+          await sleep(500) // Allow time for final keyboard navigation
+          
+          // Verify final navigation worked
+          const finalUrl = await page.url()
+          if (clean(finalUrl) !== clean(currentNavigationUrl)) {
+            customLog('Final keyboard navigation succeeded')
+          } else {
+            customLog('All navigation methods failed, continuing to next iteration')
+          }
         }
         
       } else {
